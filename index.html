@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+  <style>
+    .invisible { display: none; }
+  </style>
+  <title>Check-In/Out Log V.00</title>
+</head>
+<body>
+  <div class="container text-center">
+    <br>
+    <h1>Check-In/Out Log V.0016</h1>
+    <p>Click the button to check-in or check-out with your coordinates.</p>
+    <br>
+    <img id="pictureUrl" width="50" height="50" style="display: none;">
+    <input id="files" type="file" capture="camera" accept="image/*" onchange="loadFile(event)" class="upload-box">
+    <div id="cin" class="invisible">
+      <button type="button" class="btn btn-success" onclick="getLocation('cin')">Check-In</button>
+    </div>
+    <div id="cout" class="invisible">
+      <button type="button" class="btn btn-danger" onclick="getLocation('cout')">Check-Out</button>
+    </div>
+    <br>
+    <p id="demo"></p>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2.21.0/sdk.js" onload="onLiffScriptLoad()" onerror="onLiffScriptError()"></script>
+  <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+    const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwuhWcE98FUEfacdB-2msdUemeHhvxBbmnIcxhrQNvVWDO_RNVTKlADv_SMeC7J1-e_/exec';
+
+    function onLiffScriptLoad() {
+  console.log('LIFF SDK script loaded');
+  if (typeof liff !== 'undefined') {
+    initializeLiff('2005918762-lPMOLge0');
+  } else {
+    console.error('LIFF SDK is not loaded.');
+    Swal.fire({
+      title: 'Error',
+      text: 'LIFF SDK is not loaded.',
+      icon: 'error',
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+
+    function onLiffScriptError() {
+      console.error('Failed to load LIFF SDK.');
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to load LIFF SDK.',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
+    }
+
+    function initializeLiff(liffId) {
+      liff.init({ liffId: liffId })
+        .then(() => {
+          if (liff.isLoggedIn()) {
+            checks();
+          } else {
+            liff.login();
+          }
+        })
+        .catch((err) => {
+          console.error('LIFF initialization failed: ' + err.message);
+          Swal.fire({
+            title: 'Error',
+            text: 'Failed to initialize LIFF: ' + err.message,
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
+        });
+    }
+
+    function checks() {
+      const today = new Date();
+      const hh = today.getHours();
+      const mm = today.getMinutes();
+
+      if (hh === 13) {
+        document.getElementById("cin").classList.remove('invisible');
+      } else if (hh >= 13 && hh < 15) {
+        document.getElementById("cout").classList.remove('invisible');
+      } else {
+        Swal.fire({
+          title: `Time ${hh} : ${mm} น.`,
+          text: 'ไม่สามารถเช็คอิน/เอาท์ได้ในช่วงเวลา 13.00-15.00',
+          icon: 'warning',
+          confirmButtonText: 'OK'
+        });
+      }
+    }
+
+    function getLocation(ctype) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          liff.getProfile().then(profile => {
+            const uid = profile.userId;
+            const name = profile.displayName;
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+
+            const url = `${APP_SCRIPT_URL}?lat=${lat}&long=${lon}&user=${uid}&name=${name}&xos=123456&ctype=${ctype}&action=true`;
+
+            fetch(url)
+              .then(response => response.json())
+              .then(data => Swal.fire(`${ctype === 'cin' ? 'Check-In' : 'Check-Out'} Status`, data.desc, 'success'))
+              .catch(err => {
+                console.error('Fetch error:', err);
+                Swal.fire({
+                  title: 'Error',
+                  text: `Failed to ${ctype === 'cin' ? 'check-in' : 'check-out'}: ` + err.message,
+                  icon: 'error',
+                  confirmButtonText: 'OK'
+                });
+              });
+          }).catch(err => {
+            console.error('Profile fetch failed: ' + err.message);
+            Swal.fire({
+              title: 'Error',
+              text: 'Failed to fetch profile: ' + err.message,
+              icon: 'error',
+              confirmButtonText: 'OK'
+            });
+          });
+        });
+      } else {
+        document.getElementById("demo").textContent = "Geolocation is not supported by this browser.";
+      }
+    }
+
+    function loadFile(event) {
+      const output = document.getElementById('pictureUrl');
+      output.src = URL.createObjectURL(event.target.files[0]);
+      output.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
